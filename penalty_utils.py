@@ -24,15 +24,15 @@ def compute_penalty_2(fairness_metrics_dict, df, s1, s2, m):
   penalty_harmonic= {}
   penalty_geometric= {}
   penalty_arthmetic={}
-  s3 = str(s1)+'-'+str(s2)
+  s3 = str(s1)+'-'+str(s2) # [age-sex]
   for i in range(0,df[s1].nunique()):
     for j in range(0,df[s2].nunique()):
-      if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m]:
-        a = fairness_metrics_dict[s1][m][i]
-        b = fairness_metrics_dict[s2][m][j]
-        k=str(i)+str(j)
+      if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m]: # if exists
+        a = fairness_metrics_dict[s1][m][i] # e.g. value for [age], m, on i = 0 or 1
+        b = fairness_metrics_dict[s2][m][j] # e.g. value for [sex], m, on j = 0 or 1
+        k=str(i)+str(j) # [01]
         if k in fairness_metrics_dict[s3][m]:
-          c = fairness_metrics_dict[s3][m][k]
+          c = fairness_metrics_dict[s3][m][k] # actual value | e.g. value for [age-sex], m, on k = 00, 01, 10, 11
         else:
           c = 0
         harmonic_prevision = (2*a*b)/(a+b)

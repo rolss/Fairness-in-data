@@ -179,7 +179,7 @@ def get_max_min(data):
   else:
     ratio = 0
   print(f"Max-min: {round(max_value - min_value, 3)}")
-  print(f"Max-min: {round(min_value/max_value, 3)}")
+  print(f"Min-max: {round(min_value/max_value, 3)}")
   #print(f"Min/Max: {round(min_value / max_value, 3)}")
   return diff, ratio
 
