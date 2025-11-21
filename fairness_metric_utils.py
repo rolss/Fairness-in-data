@@ -19,6 +19,8 @@ def performance_metrics(y_test, y_pred):
   f1_score = metrics.f1_score(y_test, y_pred)
   print("Precision: "+str(precision)+ ", Recall: "+str(recall)+ ", Accuracy: "+str(accuracy)+", F1: "+str(f1_score))
 
+  return precision, recall, accuracy, f1_score
+
 def compute_predictions(df, target_variable, sensible_attribute, target, target_variable_labels=['0','1']):
   Y = df[target_variable]
   X = df.drop(target_variable, axis=1)
