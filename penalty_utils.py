@@ -202,3 +202,85 @@ def plot_penalty_long(penalty_dict, pair, m, mapping, dataset_path):
       table.scale(1.2, 1.2)
 
   plt.show(block=False)
+
+
+### -------------------------------------- REWEIGHTING FUNCTIONS ------------------------------------
+def harmonic_mean_2(a,b):
+  return (2)/((1/a)+(1/b))
+
+def harmonic_mean_3(a,b,c):
+  return (3)/((1/a)+(1/b)+(1/c))
+
+def harmonic_mean_4(a,b,c,d):
+  return (4)/((1/a)+(1/b)+(1/c)+(1/d))
+
+# Penalty computation for each subgroup combination k
+def compute_penalty(actual_values, predicted_values):
+  penalties= {}
+  # k = subgroup combination (00, 01, 10, etc...)
+  for k in actual_values.keys():
+    penalties[k] = penalty_percentage(actual_values[k], predicted_values[k])
+  return penalties
+
+# def penalty_percentage(actual_value, predicted_value):
+#   return ((predicted_value-actual_value)*100)/predicted_value
+
+def actual_predicted_values_2(fairness_metrics_dict, df, s1, s2, m):
+  actual_values= {}
+  predicted_values= {}
+  s3 = str(s1)+'-'+str(s2)
+  for i in range(0,df[s1].nunique()):
+    for j in range(0,df[s2].nunique()):
+      if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m]:
+        a = fairness_metrics_dict[s1][m][i]
+        b = fairness_metrics_dict[s2][m][j]
+        k=str(i)+str(j)
+        if k in fairness_metrics_dict[s3][m]:
+          c = fairness_metrics_dict[s3][m][k]
+        else:
+          c = 0
+        actual_values[k]= c
+        predicted_values[k]= harmonic_mean_2(a,b)
+  return actual_values, predicted_values
+
+def actual_predicted_values_3(fairness_metrics_dict, df, s1, s2, s3, m):
+  actual_values= {}
+  predicted_values= {}
+  s4 = str(s1)+'-'+str(s2)+'-'+str(s3)
+  for i in range(0,df[s1].nunique()):
+    for j in range(0,df[s2].nunique()):
+      for k in range(0,df[s3].nunique()):
+        if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m] and k in fairness_metrics_dict[s3][m]:
+          a = fairness_metrics_dict[s1][m][i]
+          b = fairness_metrics_dict[s2][m][j]
+          c = fairness_metrics_dict[s3][m][k]
+          w=str(i)+str(j)+str(k)
+          if w in fairness_metrics_dict[s4][m]:
+            d = fairness_metrics_dict[s4][m][w]
+          else:
+            d = 0
+          actual_values[w]= d
+          predicted_values[w]= harmonic_mean_3(a,b,c)
+  return actual_values, predicted_values
+
+def actual_predicted_values_4(fairness_metrics_dict, df, s1, s2, s3, s4, m):
+  actual_values= {}
+  predicted_values= {}
+  s5 = str(s1)+'-'+str(s2)+'-'+str(s3)+'-'+str(s4)
+  for i in range(0,df[s1].nunique()):
+    for j in range(0,df[s2].nunique()):
+      for k in range(0,df[s3].nunique()):
+        for l in range(0,df[s4].nunique()):
+          if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m] and k in fairness_metrics_dict[s3][m] and l in fairness_metrics_dict[s4][m]:
+            a = fairness_metrics_dict[s1][m][i]
+            b = fairness_metrics_dict[s2][m][j]
+            c = fairness_metrics_dict[s3][m][k]
+            d = fairness_metrics_dict[s4][m][l]
+            w=str(i)+str(j)+str(k)+str(l)
+            if w in fairness_metrics_dict[s5][m]:
+              e = fairness_metrics_dict[s5][m][w]
+            else:
+              e= 0
+            actual_values[w]= e
+            predicted_values[w]= harmonic_mean_4(a,b,c,d)
+  return actual_values, predicted_values

@@ -199,3 +199,238 @@ def get_attribute_analysis(df, target_variable, sensible_attribute, fair_metrics
     fairness_metrics_dict[m]= compute_fairness_metrics(cm_dict, m, sensible_attribute, mapping, dataset_path)
     differences[m], ratios[m] = get_max_min(fairness_metrics_dict[m])
   return fairness_metrics_dict, differences, ratios
+
+# ------------------- REWEIGHTING FUNCTIONS ----------------------------------------------
+# TODO: Clean afterwards
+
+def compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path):
+  fairness_dict={}
+  count_group= {}
+  for group, cm in cm_dict.items():
+    TP, TN, FP, FN, len_group = retrieve_values(cm)
+    fairness_metric = 0
+    if FP!=0:
+      if m=='PPE':
+        fairness_metric = (FP)/(TN+FP) #PredictiveEquality or FalsePositiveRate (FPR)
+      elif m=='FPR':
+        fairness_metric = (FP)/(TP+FP) #FalsDiscoveryRate
+      elif m=='FPP':
+        fairness_metric= (FP)/len_group #FalsePositiveParity
+      elif m=='FPN':
+        fairness_metric= (FP)/(FN+FP)
+    if FN!=0:
+      if m=='FPA':
+        fairness_metric= (FN)/(TN+FN) #FORParity
+      elif m=='EOP':
+        fairness_metric= (FN)/(TP+FN) #EqualOpportunity
+      elif m=='FNP':
+        fairness_metric= (FN)/len_group #FalseNegativeParity
+      elif m=='FNE':
+        fairness_metric=(FN)/(FP+FN)
+    if FP!=0 and FN!=0:
+      if m=='ERR':
+        fairness_metric= (FP+FN)/len_group #ErrorRate
+    if TP!=0:
+      if m=='GFA':
+        fairness_metric = (TP+FP)/len_group #Group Fairness
+      elif m=='PPA':
+        fairness_metric = (TP)/(TP+FP) #Predictive Parity
+      elif m=='OAE':
+        fairness_metric= (TP+TN)/len_group #OverallAccuracyEquality
+    if FP!=0 or FN!=0:
+      fairness_dict[group] = fairness_metric
+    else:
+      mapped_group = mapping_numbers_into_labels(group, sensible_attribute, mapping, dataset_path)
+      print(f"Warning: Group {mapped_group} {group} has only FN. Skipping fairness metrics calculation.")
+    count_group[group]= len_group # len_group = TN + FP + FN + TP
+  count_group = convert_types(count_group)
+  fairness_dict = convert_types(fairness_dict)  # Ensure Python-native types
+  # print("After: ", m, fairness_dict)
+  return fairness_dict, count_group
+
+def get_test_pred_fairness(df, target_variable, sensible_attribute, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
+  sensible_indexes={}
+  y_pred= []
+  y_val= []
+  
+  # Now returns X_test, y_test, and the trained model as well
+  sensible_indexes, y_pred, y_val, X_val, X_train, y_train, X_test, y_test, model = compute_predictions_reweighting(df, target_variable, sensible_attribute, target_variable_labels)
+  
+  cm_dict={}
+  fairness_metrics_dict={}
+  
+  # Compute confusion matrix and fairness metrics on VALIDATION set
+  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, target_variable_labels)
+  for m in fair_metrics:
+    fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
+  
+  return y_train, X_train, X_val, y_val, y_pred, X_test, y_test, fairness_metrics_dict, count_groups, model
+
+def compute_predictions_reweighting(df, target_variable, sensible_attribute, target, target_variable_labels=['0','1']):
+  Y = df[target_variable]
+  X = df.drop(target_variable, axis=1)
+  
+  # First split: 70% train, 30% temp (will be split into val and test)
+  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.3, random_state=1)
+  
+  # Second split: Split temp 50/50 into validation (15%) and test (15%) 
+  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=1)
+
+  # X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.3, random_state=1)
+  
+  # Get sensible indexes for validation set (used for fairness metrics computation)
+  sensible_indexes = df[sensible_attribute].loc[list(X_val.index)]
+  
+  # Model 1: Fit on training, predict on validation
+  model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
+  y_pred = model.predict(X_val)  
+  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
+  
+  return sensible_indexes, y_pred, y_val, X_val, X_train, y_train, X_test, y_test, model
+
+
+def evaluate_model_on_test(model, df, sensible_attribute, X_test, y_test, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
+  """
+  Evaluate a trained model on the TEST set for fair comparison.
+  Used for both Model 1 (baseline) and Model 2 (reweighted) final evaluation.
+  
+  Parameters:
+    model: Trained sklearn model
+    df: Original dataframe (for sensible attribute mapping)
+    sensible_attribute: The protected attribute(s) being analyzed
+    X_test, y_test: Test data (unseen)
+    fair_metrics: List of fairness metrics to compute
+    mapping: Attribute value mapping dictionary
+    dataset_path: Path to dataset
+    target_variable_labels: Labels for confusion matrix
+    
+  Returns:
+    y_pred_test: Predictions on test set
+    performance: Tuple of (precision, recall, accuracy, f1)
+    fairness_metrics_dict: Dictionary of fairness metrics per group
+    count_groups: Sample counts per group
+  """
+  # Get sensible indexes for test set
+  sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
+  
+  # Predict on test set
+  y_pred_test = model.predict(X_test)
+  
+  # Compute performance metrics
+  precision, recall, accuracy, f1 = performance_metrics(y_test, y_pred_test)
+  
+  # Compute confusion matrix per group on TEST set
+  cm_dict={}
+  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes_test, y_pred_test, y_test, X_test, target_variable_labels)
+  
+  # Compute fairness metrics on TEST set
+  fairness_metrics_dict = {}
+  count_groups = {}
+  for m in fair_metrics:
+    fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
+  
+  return y_pred_test, (precision, recall, accuracy, f1), fairness_metrics_dict, count_groups
+
+
+def compute_fairness_metrics_for_penalty(y_pred, y_test, X_test, sensible_attribute, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
+  """
+  Compute fairness metrics for both the combined attribute AND individual attributes.
+  This is needed to compute penalties after reweighting (Model 2).
+  
+  For a combined attribute like 'sex-race', this computes:
+  - Fairness metrics for 'sex-race' (actual values for penalty)
+  - Fairness metrics for 'sex' (for predicted values - harmonic mean)
+  - Fairness metrics for 'race' (for predicted values - harmonic mean)
+  
+  Parameters:
+    y_pred: Predictions from Model 2 on test set
+    y_test: True labels for test set
+    X_test: Test features (should have the combined column, e.g., 'sex-race')
+    sensible_attribute: The combined protected attribute (e.g., 'sex-race')
+    fair_metrics: List of fairness metrics to compute
+    mapping: Attribute value mapping dictionary
+    dataset_path: Path to dataset
+    target_variable_labels: Labels for confusion matrix
+    
+  Returns:
+    fairness_metrics_dict: Dictionary with metrics for combined AND individual attributes
+                          e.g., {'sex-race': {...}, 'sex': {...}, 'race': {...}}
+    count_groups_dict: Sample counts per group for each attribute
+  """
+  # --------------------------------
+  
+  # Load original dataframe to get individual attribute columns
+  df_original = pd.read_csv(dataset_path)
+  
+  # Parse the combined attribute into individual attributes
+  individual_attrs = sensible_attribute.split('-')
+  
+  fairness_metrics_dict = {}
+  count_groups_dict = {}
+  
+  # First, compute metrics for the COMBINED attribute (actual values)
+  # Create df with combined column for indexing
+  df_combined = df_original.copy()
+  if len(individual_attrs) > 1:
+    df_combined[sensible_attribute] = reduce(lambda x, y: x.astype(str) + y.astype(str), [df_combined[col] for col in individual_attrs])
+  
+  sensible_indexes_combined = df_combined[sensible_attribute].loc[list(X_test.index)] # from compute_predictions original function
+  
+  cm_dict_combined = compute_cm_group(
+    df_combined, sensible_attribute, sensible_indexes_combined, 
+    y_pred, y_test, X_test, target_variable_labels
+  )
+  
+  fairness_metrics_dict[sensible_attribute] = {}
+  for m in fair_metrics:
+    fairness_metrics_dict[sensible_attribute][m], count_groups_dict[sensible_attribute] = \
+      compute_fairness_metrics_and_counts(cm_dict_combined, m, sensible_attribute, mapping, dataset_path)
+  
+  # Now compute metrics for each INDIVIDUAL attribute (for predicted values / harmonic mean)
+  for attr in individual_attrs:
+    sensible_indexes_individual = df_original[attr].loc[list(X_test.index)]
+    cm_dict_individual = compute_cm_group(
+      df_original, attr, sensible_indexes_individual,
+      y_pred, y_test, X_test, target_variable_labels
+    )
+    
+    fairness_metrics_dict[attr] = {}
+    for m in fair_metrics:
+      fairness_metrics_dict[attr][m], count_groups_dict[attr] = \
+        compute_fairness_metrics_and_counts(cm_dict_individual, m, attr, mapping, dataset_path)
+  
+  return fairness_metrics_dict, count_groups_dict
+
+
+
+"""
+def compute_penalty_2(fairness_metrics_dict, df, s1, s2, m):
+  penalty_harmonic= {}
+  penalty_geometric= {}
+  penalty_arthmetic={}
+  s3 = str(s1)+'-'+str(s2) # [age-sex]
+  for i in range(0,df[s1].nunique()):
+    for j in range(0,df[s2].nunique()):
+      if i in fairness_metrics_dict[s1][m] and j in fairness_metrics_dict[s2][m]: # if exists
+        a = fairness_metrics_dict[s1][m][i] # e.g. value for [age], m, on i = 0 or 1
+        b = fairness_metrics_dict[s2][m][j] # e.g. value for [sex], m, on j = 0 or 1
+        k=str(i)+str(j) # [01]
+        if k in fairness_metrics_dict[s3][m]:
+          c = fairness_metrics_dict[s3][m][k] # actual value | e.g. value for [age-sex], m, on k = 00, 01, 10, 11
+        else:
+          c = 0
+        harmonic_prevision = (2*a*b)/(a+b)
+        harmonic_penalty = penalty_percentage(c, harmonic_prevision)
+        penalty_harmonic[k] = harmonic_penalty
+        geometric_prevision = math.sqrt(a*b)
+        geometric_penalty = penalty_percentage(c, geometric_prevision)
+        penalty_geometric[k] = geometric_penalty
+        arithmetic_prevision = (a+b)/2
+        arithmetic_penalty = penalty_percentage(c, arithmetic_prevision)
+        penalty_arthmetic[k] = arithmetic_penalty
+  return penalty_harmonic, penalty_geometric, penalty_arthmetic
+"""
+
