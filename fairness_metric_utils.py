@@ -282,8 +282,25 @@ def compute_predictions_reweighting(df, target_variable, sensible_attribute, tar
   sensible_indexes = df[sensible_attribute].loc[list(X_val.index)]
   
   # Model 1: Fit on training, predict on validation
+
+  # --- Random Forest Version ---
   model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
   y_pred = model.predict(X_val)  
+
+  # --- XGB Version ---
+  # import xgboost as xgb
+  # # Convert string combinations to numeric codes for the sensible_attribute column only
+  # X_train_numeric = X_train.copy()
+  # if sensible_attribute in X_train_numeric.columns:
+  #   X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  # X_val_numeric = X_val.copy()
+  # if sensible_attribute in X_val_numeric.columns:
+  #   X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
+  # model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
+  # model.fit(X_train_numeric, y_train)
+  # y_pred = model.predict(X_val_numeric)
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
@@ -293,30 +310,17 @@ def compute_predictions_reweighting(df, target_variable, sensible_attribute, tar
 
 
 def evaluate_model_on_test(model, df, sensible_attribute, X_test, y_test, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
-  """
-  Evaluate a trained model on the TEST set for fair comparison.
-  Used for both Model 1 (baseline) and Model 2 (reweighted) final evaluation.
-  
-  Parameters:
-    model: Trained sklearn model
-    df: Original dataframe (for sensible attribute mapping)
-    sensible_attribute: The protected attribute(s) being analyzed
-    X_test, y_test: Test data (unseen)
-    fair_metrics: List of fairness metrics to compute
-    mapping: Attribute value mapping dictionary
-    dataset_path: Path to dataset
-    target_variable_labels: Labels for confusion matrix
-    
-  Returns:
-    y_pred_test: Predictions on test set
-    performance: Tuple of (precision, recall, accuracy, f1)
-    fairness_metrics_dict: Dictionary of fairness metrics per group
-    count_groups: Sample counts per group
-  """
   # Get sensible indexes for test set
   sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
-  
-  # Predict on test set
+
+  # --- XGB Version ---
+  # X_test_numeric = X_test.copy()
+  # if sensible_attribute in X_test_numeric.columns:
+  #   X_test_numeric[sensible_attribute] = X_test_numeric[sensible_attribute].astype('category').cat.codes
+  # # Predict on test set
+  # y_pred_test = model.predict(X_test_numeric)
+
+  # --- Random Forest version ---
   y_pred_test = model.predict(X_test)
   
   # Compute performance metrics
@@ -332,34 +336,12 @@ def evaluate_model_on_test(model, df, sensible_attribute, X_test, y_test, fair_m
   for m in fair_metrics:
     fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
   
-  return y_pred_test, (precision, recall, accuracy, f1), fairness_metrics_dict, count_groups
+  cm = confusion_matrix(y_test, y_pred_test, labels=target_variable_labels)
+
+  return y_pred_test, (precision, recall, accuracy, f1), fairness_metrics_dict, count_groups, cm_dict, cm
 
 
 def compute_fairness_metrics_for_penalty(y_pred, y_test, X_test, sensible_attribute, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
-  """
-  Compute fairness metrics for both the combined attribute AND individual attributes.
-  This is needed to compute penalties after reweighting (Model 2).
-  
-  For a combined attribute like 'sex-race', this computes:
-  - Fairness metrics for 'sex-race' (actual values for penalty)
-  - Fairness metrics for 'sex' (for predicted values - harmonic mean)
-  - Fairness metrics for 'race' (for predicted values - harmonic mean)
-  
-  Parameters:
-    y_pred: Predictions from Model 2 on test set
-    y_test: True labels for test set
-    X_test: Test features (should have the combined column, e.g., 'sex-race')
-    sensible_attribute: The combined protected attribute (e.g., 'sex-race')
-    fair_metrics: List of fairness metrics to compute
-    mapping: Attribute value mapping dictionary
-    dataset_path: Path to dataset
-    target_variable_labels: Labels for confusion matrix
-    
-  Returns:
-    fairness_metrics_dict: Dictionary with metrics for combined AND individual attributes
-                          e.g., {'sex-race': {...}, 'sex': {...}, 'race': {...}}
-    count_groups_dict: Sample counts per group for each attribute
-  """
   # --------------------------------
   
   # Load original dataframe to get individual attribute columns
