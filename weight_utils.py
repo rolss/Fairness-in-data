@@ -207,7 +207,7 @@ def compute_sample_weights_flat_group_allmetrics(df, y_true, y_pred, group_col, 
 
 
 
-def compute_sample_weights_flat_group_allmetrics(df, y_true, y_pred, group_col, focus_on, lambda_=1.0):
+def compute_sample_weights_flat_group_allmetrics(df, y_true, y_pred, group_col, focus_on):
     # Initialize weights to 1
     weights = np.ones(len(df))
 
@@ -869,3 +869,4 @@ def plot_before_after_performance_diff(baseline_performance, after_performance_v
 
         plt.tight_layout()
         plt.show()
+

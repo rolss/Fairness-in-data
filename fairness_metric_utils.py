@@ -261,6 +261,7 @@ def get_test_pred_fairness(df, target_variable, sensible_attribute, fair_metrics
   
   # Compute confusion matrix and fairness metrics on VALIDATION set
   cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, target_variable_labels)
+  print(cm_dict)
   for m in fair_metrics:
     fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
   
