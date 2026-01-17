@@ -267,6 +267,43 @@ def get_test_pred_fairness(df, target_variable, sensible_attribute, fair_metrics
   
   return y_train, X_train, X_val, y_val, y_pred, X_test, y_test, fairness_metrics_dict, count_groups, model
 
+def get_fairness_metrics_onvalidation(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
+  cm_dict={}
+  fairness_metrics_dict={}
+  
+  # Compute confusion matrix and fairness metrics on VALIDATION set
+  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, target_variable_labels)
+  print(cm_dict)
+  for m in fair_metrics:
+    fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
+  
+  return fairness_metrics_dict, count_groups, cm_dict
+
+def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
+  model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
+  y_pred = model.predict(X_val_or_test)  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model
+
+def compute_data_split(df, target_variable, sensible_attribute):
+  Y = df[target_variable]
+  X = df.drop(target_variable, axis=1)
+  
+  # First split: 70% train, 30% temp (will be split into val and test)
+  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.3, random_state=1)
+  
+  # Second split: Split temp 50/50 into validation (15%) and test (15%) 
+  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=1)
+
+  # Get sensible indexes for validation set (used for fairness metrics computation)
+  sensible_indexes_val = df[sensible_attribute].loc[list(X_val.index)]
+  sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
+  
+  return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
+
 def compute_predictions_reweighting(df, target_variable, sensible_attribute, target, target_variable_labels=['0','1']):
   Y = df[target_variable]
   X = df.drop(target_variable, axis=1)
