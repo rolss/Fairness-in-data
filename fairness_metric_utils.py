@@ -4,7 +4,7 @@ import pandas as pd
 np.random.seed(0)
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.datasets import make_classification
 from sklearn import metrics
 from sklearn.metrics import confusion_matrix
@@ -267,12 +267,12 @@ def get_test_pred_fairness(df, target_variable, sensible_attribute, fair_metrics
   
   return y_train, X_train, X_val, y_val, y_pred, X_test, y_test, fairness_metrics_dict, count_groups, model
 
-def get_fairness_metrics_onvalidation(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
+def get_fairness_metrics(df, sensible_attribute, sensible_indexes, y_pred, y_val_or_test, X_val_or_test, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
   cm_dict={}
   fairness_metrics_dict={}
   
   # Compute confusion matrix and fairness metrics on VALIDATION set
-  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, target_variable_labels)
+  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val_or_test, X_val_or_test, target_variable_labels)
   print(cm_dict)
   for m in fair_metrics:
     fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
@@ -281,6 +281,40 @@ def get_fairness_metrics_onvalidation(df, sensible_attribute, sensible_indexes, 
 
 def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
   model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
+  y_pred = model.predict(X_val_or_test)  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
+
+  # model = GradientBoostingClassifier(random_state = 1234).fit(X_train, y_train)
+  # y_pred = model.predict(X_val_or_test)  
+  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  # print(sensible_attribute)
+  # performance_metrics(y_val, y_pred)
+
+  # --- XGB Version ---
+  # import xgboost as xgb
+  # # Convert string combinations to numeric codes for the sensible_attribute column only
+  # X_train_numeric = X_train.copy()
+  # if sensible_attribute in X_train_numeric.columns:
+  #   X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  # X_val_numeric = X_val_or_test.copy()
+  # if sensible_attribute in X_val_numeric.columns:
+  #   X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
+  # model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
+  # model.fit(X_train_numeric, y_train)
+  # y_pred = model.predict(X_val_numeric)
+  
+  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  # print(sensible_attribute)
+  # performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model
+
+def compute_rew_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, weights=None):
+  model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train, sample_weight=weights)
   y_pred = model.predict(X_val_or_test)  
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
