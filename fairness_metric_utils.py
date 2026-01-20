@@ -313,6 +313,34 @@ def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_var
 
   return y_pred, cm, model
 
+def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
+  # --- LightGBM Version ---
+  import lightgbm as lgb
+
+  model = lgb.LGBMClassifier(random_state = 1234)
+  model.fit(X_train, y_train)
+  y_pred = model.predict(X_val_or_test)
+  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model
+
+def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
+  # --- LightGBM Version ---
+  import catboost as catboost
+
+  model = catboost.CatBoostClassifier(random_state = 1234)
+  model.fit(X_train, y_train)
+  y_pred = model.predict(X_val_or_test)
+  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model
+
 def compute_rew_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, weights=None):
   model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train, sample_weight=weights)
   y_pred = model.predict(X_val_or_test)  
@@ -338,47 +366,6 @@ def compute_data_split(df, target_variable, sensible_attribute):
   
   return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
 
-def compute_predictions_reweighting(df, target_variable, sensible_attribute, target, target_variable_labels=['0','1']):
-  Y = df[target_variable]
-  X = df.drop(target_variable, axis=1)
-  
-  # First split: 70% train, 30% temp (will be split into val and test)
-  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.3, random_state=1)
-  
-  # Second split: Split temp 50/50 into validation (15%) and test (15%) 
-  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=1)
-
-  # X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.3, random_state=1)
-  
-  # Get sensible indexes for validation set (used for fairness metrics computation)
-  sensible_indexes = df[sensible_attribute].loc[list(X_val.index)]
-  
-  # Model 1: Fit on training, predict on validation
-
-  # --- Random Forest Version ---
-  model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
-  y_pred = model.predict(X_val)  
-
-  # --- XGB Version ---
-  # import xgboost as xgb
-  # # Convert string combinations to numeric codes for the sensible_attribute column only
-  # X_train_numeric = X_train.copy()
-  # if sensible_attribute in X_train_numeric.columns:
-  #   X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
-
-  # X_val_numeric = X_val.copy()
-  # if sensible_attribute in X_val_numeric.columns:
-  #   X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
-
-  # model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
-  # model.fit(X_train_numeric, y_train)
-  # y_pred = model.predict(X_val_numeric)
-  
-  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
-  print(sensible_attribute)
-  performance_metrics(y_val, y_pred)
-  
-  return sensible_indexes, y_pred, y_val, X_val, X_train, y_train, X_test, y_test, model
 
 
 def evaluate_model_on_test(model, df, sensible_attribute, X_test, y_test, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
