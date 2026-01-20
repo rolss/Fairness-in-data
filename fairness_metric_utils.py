@@ -280,11 +280,11 @@ def get_fairness_metrics(df, sensible_attribute, sensible_indexes, y_pred, y_val
   return fairness_metrics_dict, count_groups, cm_dict
 
 def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
-  model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
-  y_pred = model.predict(X_val_or_test)  
-  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
-  print(sensible_attribute)
-  performance_metrics(y_val, y_pred)
+  # model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
+  # y_pred = model.predict(X_val_or_test)  
+  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  # print(sensible_attribute)
+  # performance_metrics(y_val, y_pred)
 
   # model = GradientBoostingClassifier(random_state = 1234).fit(X_train, y_train)
   # y_pred = model.predict(X_val_or_test)  
@@ -293,23 +293,23 @@ def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_var
   # performance_metrics(y_val, y_pred)
 
   # --- XGB Version ---
-  # import xgboost as xgb
-  # # Convert string combinations to numeric codes for the sensible_attribute column only
-  # X_train_numeric = X_train.copy()
-  # if sensible_attribute in X_train_numeric.columns:
-  #   X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+  import xgboost as xgb
+  # Convert string combinations to numeric codes for the sensible_attribute column only
+  X_train_numeric = X_train.copy()
+  if sensible_attribute in X_train_numeric.columns:
+    X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
 
-  # X_val_numeric = X_val_or_test.copy()
-  # if sensible_attribute in X_val_numeric.columns:
-  #   X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+  X_val_numeric = X_val_or_test.copy()
+  if sensible_attribute in X_val_numeric.columns:
+    X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
 
-  # model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
-  # model.fit(X_train_numeric, y_train)
-  # y_pred = model.predict(X_val_numeric)
+  model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
+  model.fit(X_train_numeric, y_train)
+  y_pred = model.predict(X_val_numeric)
   
-  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
-  # print(sensible_attribute)
-  # performance_metrics(y_val, y_pred)
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(sensible_attribute)
+  performance_metrics(y_val, y_pred)
 
   return y_pred, cm, model
 
