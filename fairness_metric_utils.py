@@ -248,25 +248,6 @@ def compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping,
   # print("After: ", m, fairness_dict)
   return fairness_dict, count_group
 
-def get_test_pred_fairness(df, target_variable, sensible_attribute, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
-  sensible_indexes={}
-  y_pred= []
-  y_val= []
-  
-  # Now returns X_test, y_test, and the trained model as well
-  sensible_indexes, y_pred, y_val, X_val, X_train, y_train, X_test, y_test, model = compute_predictions_reweighting(df, target_variable, sensible_attribute, target_variable_labels)
-  
-  cm_dict={}
-  fairness_metrics_dict={}
-  
-  # Compute confusion matrix and fairness metrics on VALIDATION set
-  cm_dict = compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_val, X_val, target_variable_labels)
-  print(cm_dict)
-  for m in fair_metrics:
-    fairness_metrics_dict[m], count_groups = compute_fairness_metrics_and_counts(cm_dict, m, sensible_attribute, mapping, dataset_path)
-  
-  return y_train, X_train, X_val, y_val, y_pred, X_test, y_test, fairness_metrics_dict, count_groups, model
-
 def get_fairness_metrics(df, sensible_attribute, sensible_indexes, y_pred, y_val_or_test, X_val_or_test, fair_metrics, dataset_path, mapping, target_variable_labels=['0','1']):
   cm_dict={}
   fairness_metrics_dict={}
@@ -317,9 +298,17 @@ def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, t
   # --- LightGBM Version ---
   import lightgbm as lgb
 
+  X_train_numeric = X_train.copy()
+  if sensible_attribute in X_train_numeric.columns:
+    X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  X_val_numeric = X_val_or_test.copy()
+  if sensible_attribute in X_val_numeric.columns:
+    X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
   model = lgb.LGBMClassifier(random_state = 1234)
-  model.fit(X_train, y_train)
-  y_pred = model.predict(X_val_or_test)
+  model.fit(X_train_numeric, y_train)
+  y_pred = model.predict(X_val_numeric)
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
@@ -331,9 +320,17 @@ def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, t
   # --- LightGBM Version ---
   import catboost as catboost
 
+  X_train_numeric = X_train.copy()
+  if sensible_attribute in X_train_numeric.columns:
+    X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  X_val_numeric = X_val_or_test.copy()
+  if sensible_attribute in X_val_numeric.columns:
+    X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
   model = catboost.CatBoostClassifier(random_state = 1234)
-  model.fit(X_train, y_train)
-  y_pred = model.predict(X_val_or_test)
+  model.fit(X_train_numeric, y_train)
+  y_pred = model.predict(X_val_numeric)
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)

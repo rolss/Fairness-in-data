@@ -18,6 +18,8 @@ def mapping_numbers_into_labels(group, sensible_attribute, mapping, dataset_path
   return mapped_group
 
 def penalty_percentage(actual_value, predicted_value):
+  if predicted_value == 0:
+    return 0.0
   return ((predicted_value-actual_value)*100)/predicted_value
 
 def compute_penalty_2(fairness_metrics_dict, df, s1, s2, m):
