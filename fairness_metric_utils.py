@@ -33,6 +33,7 @@ def compute_predictions(df, target_variable, sensible_attribute, target, target_
   #performance_metrics(y_test, y_pred)
   return sensible_indexes, y_pred, y_test, X_test
 
+# TODO: Test on target_variable_labels
 def compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_test, X_test, target_variable_labels=['0','1']):
   sensible_values = df[sensible_attribute].unique()
   idx_dict = {value: [] for value in sensible_values}
@@ -67,6 +68,14 @@ def compute_cm_group(df, sensible_attribute, sensible_indexes, y_pred, y_test, X
       # Store the predictions in the dictionary
       y_pred_dict[group] = y_pred_group
       y_test_dict[group] = y_test_group
+  # Determine the actual dtype of y_test to ensure labels match
+  # This is needed because target_variable_labels might be strings ['0','1'] but y_test contains integers [0,1]
+  # y_test_sample = y_test.iloc[0] if hasattr(y_test, 'iloc') else y_test[0]
+  # if isinstance(y_test_sample, (int, np.integer)):
+  #     labels_to_use = [int(l) for l in target_variable_labels]
+  # else:
+  #     labels_to_use = target_variable_labels
+
   # Print the predictions for each group
   for group, preds in y_pred_dict.items():
       #print(f"Predictions for group {group}: {preds}")
@@ -294,6 +303,44 @@ def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_var
 
   return y_pred, cm, model
 
+
+def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, threshold=0.5):
+  # model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
+  # y_pred = model.predict(X_val_or_test)  
+  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  # print(sensible_attribute)
+  # performance_metrics(y_val, y_pred)
+
+  # model = GradientBoostingClassifier(random_state = 1234).fit(X_train, y_train)
+  # y_pred = model.predict(X_val_or_test)  
+  # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  # print(sensible_attribute)
+  # performance_metrics(y_val, y_pred)
+
+  # --- XGB Version ---
+  import xgboost as xgb
+  # Convert string combinations to numeric codes for the sensible_attribute column only
+  X_train_numeric = X_train.copy()
+  if sensible_attribute in X_train_numeric.columns:
+    X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  X_val_numeric = X_val_or_test.copy()
+  if sensible_attribute in X_val_numeric.columns:
+    X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
+  model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
+  model.fit(X_train_numeric, y_train)
+  
+  # Use predict_proba with threshold instead of predict
+  y_proba = model.predict_proba(X_val_numeric)[:, 1]
+  y_pred = (y_proba >= threshold).astype(int)
+  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(f"{sensible_attribute} (threshold={threshold})")
+  performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model
+
 def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
   # --- LightGBM Version ---
   import lightgbm as lgb
@@ -315,6 +362,7 @@ def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, t
   performance_metrics(y_val, y_pred)
 
   return y_pred, cm, model
+  
 
 def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
   # --- LightGBM Version ---
