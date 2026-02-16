@@ -299,9 +299,9 @@ def compute_model_predictions(X_train, y_train, X_val_or_test, y_val, target_var
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
-  performance_metrics(y_val, y_pred)
+  perf_metrics = performance_metrics(y_val, y_pred)
 
-  return y_pred, cm, model
+  return y_pred, cm, model, perf_metrics
 
 
 def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, threshold=0.5):
@@ -337,9 +337,9 @@ def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(f"{sensible_attribute} (threshold={threshold})")
-  performance_metrics(y_val, y_pred)
+  perf_metrics = performance_metrics(y_val, y_pred)
 
-  return y_pred, cm, model
+  return y_pred, cm, model, perf_metrics
 
 def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
   # --- LightGBM Version ---
@@ -359,9 +359,9 @@ def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, t
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
-  performance_metrics(y_val, y_pred)
+  perf_metrics = performance_metrics(y_val, y_pred)
 
-  return y_pred, cm, model
+  return y_pred, cm, model, perf_metrics 
   
 
 def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
@@ -382,9 +382,9 @@ def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, t
   
   cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
   print(sensible_attribute)
-  performance_metrics(y_val, y_pred)
+  perf_metrics = performance_metrics(y_val, y_pred)
 
-  return y_pred, cm, model
+  return y_pred, cm, model, perf_metrics
 
 def compute_rew_model_predictions(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, weights=None):
   model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train, sample_weight=weights)
@@ -490,7 +490,80 @@ def compute_fairness_metrics_for_penalty(y_pred, y_test, X_test, sensible_attrib
   
   return fairness_metrics_dict, count_groups_dict
 
-
+def plot_performance_comparison(perf_metrics_val, perf_metrics_test, perf_metrics_after, sensible_attribute):
+    """
+    Compare performance metrics across validation set, test set, and test set after reweighting.
+    
+    Args:
+        perf_metrics_val: Dictionary of performance metric tuples on validation set
+        perf_metrics_test: Dictionary of performance metric tuples on test set
+        perf_metrics_after: Tuple of performance metrics on test set after reweighting
+        sensible_attribute: The attribute key to extract metrics from the dictionaries
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    # Extract metrics for the sensible_attribute (these are tuples)
+    metrics_val = perf_metrics_val[sensible_attribute]
+    metrics_test = perf_metrics_test[sensible_attribute]
+    metrics_after = perf_metrics_after
+    
+    # Metric names (matches the order returned by performance_metrics function)
+    metric_names = ['Precision', 'Recall', 'Accuracy', 'F1']
+    
+    # Extract values for each model (tuples are indexed by position)
+    val_values = list(metrics_val)
+    test_values = list(metrics_test)
+    after_values = list(metrics_after)
+    
+    # Set up the plot
+    x = np.arange(len(metric_names))
+    width = 0.25
+    
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    # Create bars
+    bars1 = ax.bar(x - width, val_values, width, label='Validation Set', alpha=0.8, color='#27ae60')
+    bars2 = ax.bar(x, test_values, width, label='Test Set (Before Reweighting)', alpha=0.8, color='#e74c3c')
+    bars3 = ax.bar(x + width, after_values, width, label='Test Set (After Reweighting)', alpha=0.8, color='#3498db')
+    
+    # Add value labels on bars
+    def autolabel(bars):
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.3f}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9, rotation=0)
+    
+    autolabel(bars1)
+    autolabel(bars2)
+    autolabel(bars3)
+    
+    # Customize plot
+    ax.set_xlabel('Performance Metrics', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Score', fontsize=12, fontweight='bold')
+    ax.set_title(f'Performance Comparison: Validation vs Test vs Test After Reweighting\nSubgroup: {sensible_attribute}', 
+                 fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(metric_names, fontsize=11)
+    ax.legend(fontsize=10, loc='lower right')
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    ax.set_ylim([0, 1.1])
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print numerical comparison
+    print("\nPerformance Metrics Comparison:")
+    print("=" * 80)
+    print(f"{'Metric':<15} {'Validation':<15} {'Test (Before)':<15} {'Test (After)':<15} {'Δ (After-Before)':<15}")
+    print("-" * 80)
+    for i, metric in enumerate(metric_names):
+        delta = after_values[i] - test_values[i]
+        print(f"{metric:<15} {val_values[i]:<15.4f} {test_values[i]:<15.4f} {after_values[i]:<15.4f} {delta:+.4f}")
+    print("=" * 80)
 
 """
 def compute_penalty_2(fairness_metrics_dict, df, s1, s2, m):
