@@ -23,5 +23,17 @@ echo Running age-sex combination...
 papermill "Reweight_COMPAS_BINARY Model XGB.ipynb" "results/COMPAS/output_age_sex_XGB_COMPAS.ipynb" -p sensible_attribute "age-sex"
 
 echo.
+echo Running sex-race combination...
+papermill "Reweight_COMPAS_BINARY Model LGBM.ipynb" "results/COMPAS/output_sex_race_LGBM_COMPAS.ipynb" -p sensible_attribute "sex-race"
+
+echo.
+echo Running age-race combination...
+papermill "Reweight_COMPAS_BINARY Model LGBM.ipynb" "results/COMPAS/output_age_race_LGBM_COMPAS.ipynb" -p sensible_attribute "age-race"
+
+echo.
+echo Running age-sex combination...
+papermill "Reweight_COMPAS_BINARY Model LGBM.ipynb" "results/COMPAS/output_age_sex_LGBM_COMPAS.ipynb" -p sensible_attribute "age-sex"
+
+echo.
 echo All combinations completed! Results are in the results/COMPAS/ folder.
 exit 0

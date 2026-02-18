@@ -362,6 +362,31 @@ def compute_model_predictions_lightgbm(X_train, y_train, X_val_or_test, y_val, t
   perf_metrics = performance_metrics(y_val, y_pred)
 
   return y_pred, cm, model, perf_metrics 
+
+def compute_model_predictions_lightgbm_with_threshold(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, threshold=0.5):
+  # --- LightGBM Version with Threshold ---
+  import lightgbm as lgb
+
+  X_train_numeric = X_train.copy()
+  if sensible_attribute in X_train_numeric.columns:
+    X_train_numeric[sensible_attribute] = X_train_numeric[sensible_attribute].astype('category').cat.codes
+
+  X_val_numeric = X_val_or_test.copy()
+  if sensible_attribute in X_val_numeric.columns:
+    X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
+
+  model = lgb.LGBMClassifier(random_state = 1234)
+  model.fit(X_train_numeric, y_train)
+  
+  # Use predict_proba with threshold instead of predict
+  y_proba = model.predict_proba(X_val_numeric)[:, 1]
+  y_pred = (y_proba >= threshold).astype(int)
+  
+  cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
+  print(f"{sensible_attribute} (threshold={threshold})")
+  perf_metrics = performance_metrics(y_val, y_pred)
+
+  return y_pred, cm, model, perf_metrics
   
 
 def compute_model_predictions_catboost(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute):
