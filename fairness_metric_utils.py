@@ -327,7 +327,7 @@ def compute_model_predictions_general(X_train, y_train, X_val_or_test, y_val, ta
   return y_pred, cm, model, perf_metrics
 
 
-def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, threshold=0.5):
+def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_val, target_variable_labels, sensible_attribute, model, threshold=0.5):
   # model = RandomForestClassifier(random_state = 1234).fit(X_train, y_train)
   # y_pred = model.predict(X_val_or_test)  
   # cm = confusion_matrix(y_val, y_pred, labels=target_variable_labels)
@@ -341,7 +341,6 @@ def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_
   # performance_metrics(y_val, y_pred)
 
   # --- XGB Version ---
-  import xgboost as xgb
   # Convert string combinations to numeric codes for the sensible_attribute column only
   X_train_numeric = X_train.copy()
   if sensible_attribute in X_train_numeric.columns:
@@ -351,7 +350,6 @@ def compute_model_predictions_with_threshold(X_train, y_train, X_val_or_test, y_
   if sensible_attribute in X_val_numeric.columns:
     X_val_numeric[sensible_attribute] = X_val_numeric[sensible_attribute].astype('category').cat.codes
 
-  model = xgb.XGBClassifier(random_state = 1234, eval_metric='logloss')
   model.fit(X_train_numeric, y_train)
   
   # Use predict_proba with threshold instead of predict
