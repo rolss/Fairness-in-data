@@ -457,6 +457,55 @@ def compute_data_split(df, target_variable, sensible_attribute):
   
   return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
 
+def compute_data_split_403030(df, target_variable, sensible_attribute):
+  Y = df[target_variable]
+  X = df.drop(target_variable, axis=1)
+  
+  # First split: 40% train, 60% temp (will be split into val and test)
+  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.6, random_state=1)
+  
+  # Second split: Split temp 50/50 into validation (30%) and test (30%) 
+  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=1)
+
+  # Get sensible indexes for validation set (used for fairness metrics computation)
+  sensible_indexes_val = df[sensible_attribute].loc[list(X_val.index)]
+  sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
+  
+  return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
+
+def compute_data_split_452525(df, target_variable, sensible_attribute):
+  Y = df[target_variable]
+  X = df.drop(target_variable, axis=1)
+  
+  # First split: 30% train, 70% temp (will be split into val and test)
+  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.55, random_state=1)
+  
+  # Second split: Split temp 50/50 into validation (35%) and test (35%) 
+  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=1)
+
+  # Get sensible indexes for validation set (used for fairness metrics computation)
+  sensible_indexes_val = df[sensible_attribute].loc[list(X_val.index)]
+  sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
+  
+  return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
+
+
+def compute_data_split_random(df, target_variable, sensible_attribute, random_state):
+  Y = df[target_variable]
+  X = df.drop(target_variable, axis=1)
+  
+  # First split: 70% train, 30% temp (will be split into val and test)
+  X_train, X_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.3, random_state=random_state)
+  
+  # Second split: Split temp 50/50 into validation (15%) and test (15%) 
+  X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=random_state)
+
+  # Get sensible indexes for validation set (used for fairness metrics computation)
+  sensible_indexes_val = df[sensible_attribute].loc[list(X_val.index)]
+  sensible_indexes_test = df[sensible_attribute].loc[list(X_test.index)]
+  
+  return sensible_indexes_val, sensible_indexes_test, X_train, y_train, X_val, y_val, X_test, y_test
+
 
 
 def evaluate_model_on_test(model, df, sensible_attribute, X_test, y_test, fair_metrics, mapping, dataset_path, target_variable_labels=[0, 1]):
