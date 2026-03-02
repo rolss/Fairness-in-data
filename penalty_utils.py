@@ -37,7 +37,10 @@ def compute_penalty_2(fairness_metrics_dict, df, s1, s2, m):
           c = fairness_metrics_dict[s3][m][k] # actual value | e.g. value for [age-sex], m, on k = 00, 01, 10, 11
         else:
           c = 0
-        harmonic_prevision = (2*a*b)/(a+b)
+        if (a+b) == 0:
+          harmonic_prevision = 0        
+        else:
+          harmonic_prevision = (2*a*b)/(a+b)
         harmonic_penalty = penalty_percentage(c, harmonic_prevision)
         penalty_harmonic[k] = harmonic_penalty
         geometric_prevision = math.sqrt(a*b)
