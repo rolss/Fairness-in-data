@@ -1,7 +1,7 @@
 # Penalty-Based Reweighting: Measuring and Mitigating Intersectional Unfairness in Machine Learning
 
 ## Main Code
-The main experiment pipeline is in [Reproducible Pipeline.ipynb](Reproducible%20Pipeline.ipynb).
+The main experiment pipeline can be found in [Reproducible Pipeline.ipynb](Reproducible%20Pipeline.ipynb).
 
 ## Notebook Organization
 The notebook is divided into the following sections. You can collapse/expand each heading to improve readability while running experiments.
